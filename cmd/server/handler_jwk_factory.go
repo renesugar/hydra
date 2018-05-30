@@ -25,6 +25,7 @@ import (
 	"github.com/ory/herodot"
 	"github.com/ory/hydra/config"
 	"github.com/ory/hydra/jwk"
+	"github.com/ory/sqlcon"
 )
 
 func injectJWKManager(c *config.Config) {
@@ -34,7 +35,7 @@ func injectJWKManager(c *config.Config) {
 	case *config.MemoryConnection:
 		ctx.KeyManager = &jwk.MemoryManager{}
 		break
-	case *config.SQLConnection:
+	case *sqlcon.SQLConnection:
 		ctx.KeyManager = &jwk.SQLManager{
 			DB: con.GetDatabase(),
 			Cipher: &jwk.AEAD{
@@ -57,10 +58,8 @@ func injectJWKManager(c *config.Config) {
 func newJWKHandler(c *config.Config, router *httprouter.Router) *jwk.Handler {
 	ctx := c.Context()
 	h := &jwk.Handler{
-		H:              herodot.NewJSONWriter(c.GetLogger()),
-		W:              ctx.Warden,
-		Manager:        ctx.KeyManager,
-		ResourcePrefix: c.AccessControlResourcePrefix,
+		H:       herodot.NewJSONWriter(c.GetLogger()),
+		Manager: ctx.KeyManager,
 	}
 	h.SetRoutes(router)
 	return h

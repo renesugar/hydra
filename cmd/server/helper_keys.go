@@ -35,7 +35,7 @@ func createOrGetJWK(c *config.Config, set string, prefix string) (key *jose.JSON
 	ctx := c.Context()
 
 	keys, err := ctx.KeyManager.GetKeySet(set)
-	if errors.Cause(err) == pkg.ErrNotFound || len(keys.Keys) == 0 {
+	if errors.Cause(err) == pkg.ErrNotFound || keys != nil && len(keys.Keys) == 0 {
 		c.GetLogger().Infof("JSON Web Key Set %s does not exist yet, generating new key pair...", set)
 		keys, err = createJWKS(ctx, set)
 		if err != nil {
@@ -68,6 +68,11 @@ func createJWKS(ctx *config.Context, set string) (*jose.JSONWebKeySet, error) {
 	keys, err := generator.Generate("")
 	if err != nil {
 		return nil, errors.Wrapf(err, "Could not generate %s key", set)
+	}
+
+	for i, k := range keys.Keys {
+		k.Use = "sig"
+		keys.Keys[i] = k
 	}
 
 	err = ctx.KeyManager.AddKeySet(set, keys)

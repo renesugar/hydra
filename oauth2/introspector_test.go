@@ -33,11 +33,9 @@ import (
 	"github.com/ory/fosite/compose"
 	"github.com/ory/fosite/storage"
 	"github.com/ory/herodot"
-	compose2 "github.com/ory/hydra/compose"
 	"github.com/ory/hydra/oauth2"
 	"github.com/ory/hydra/pkg"
 	hydra "github.com/ory/hydra/sdk/go/hydra/swagger"
-	"github.com/ory/ladon"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,14 +45,6 @@ func TestIntrospectorSDK(t *testing.T) {
 	tokens := pkg.Tokens(3)
 	memoryStore := storage.NewExampleStore()
 	memoryStore.Clients["my-client"].Scopes = []string{"fosite", "openid", "photos", "offline", "foo.*"}
-
-	var localWarden, _ = compose2.NewMockFirewallWithStore("foo", "my-client", fosite.Arguments{"hydra.introspect"}, memoryStore, &ladon.DefaultPolicy{
-		ID:        "1",
-		Subjects:  []string{"my-client"},
-		Resources: []string{"rn:hydra:oauth2:tokens"},
-		Actions:   []string{"introspect"},
-		Effect:    ladon.AllowAccess,
-	})
 
 	l := logrus.New()
 	l.Level = logrus.DebugLevel
@@ -73,14 +63,13 @@ func TestIntrospectorSDK(t *testing.T) {
 			compose.OAuth2AuthorizeExplicitFactory,
 			compose.OAuth2TokenIntrospectionFactory,
 		),
-		H:      herodot.NewJSONWriter(l),
-		Issuer: "foobariss",
-		W:      localWarden,
+		H:         herodot.NewJSONWriter(l),
+		IssuerURL: "foobariss",
 	}
 	handler.SetRoutes(router)
 	server := httptest.NewServer(router)
 
-	now := time.Now().Round(time.Minute)
+	now := time.Now().UTC().Round(time.Minute)
 	createAccessTokenSession("alice", "my-client", tokens[0][0], now.Add(time.Hour), memoryStore, fosite.Arguments{"core", "foo.*"})
 	createAccessTokenSession("siri", "my-client", tokens[1][0], now.Add(-time.Hour), memoryStore, fosite.Arguments{"core", "foo.*"})
 	createAccessTokenSession("my-client", "my-client", tokens[2][0], now.Add(time.Hour), memoryStore, fosite.Arguments{"hydra.introspect"})
@@ -109,7 +98,7 @@ func TestIntrospectorSDK(t *testing.T) {
 				description:    "should fail because username / password are invalid",
 				token:          tokens[0][1],
 				expectInactive: true,
-				expectCode:     http.StatusForbidden,
+				expectCode:     http.StatusUnauthorized,
 				prepare: func(*testing.T) *hydra.OAuth2Api {
 					client := hydra.NewOAuth2ApiWithBasePath(server.URL)
 					client.Configuration.Username = "foo"
@@ -142,7 +131,7 @@ func TestIntrospectorSDK(t *testing.T) {
 					assert.Equal(t, "alice", c.Sub)
 					assert.Equal(t, now.Add(time.Hour).Unix(), c.Exp, "expires at")
 					assert.Equal(t, now.Unix(), c.Iat, "issued at")
-					assert.Equal(t, "foobariss", c.Iss, "issuer")
+					assert.Equal(t, "foobariss/", c.Iss, "issuer")
 					assert.Equal(t, map[string]interface{}{"foo": "bar"}, c.Ext)
 				},
 			},
@@ -155,7 +144,7 @@ func TestIntrospectorSDK(t *testing.T) {
 					assert.Equal(t, "alice", c.Sub)
 					assert.Equal(t, now.Add(time.Hour).Unix(), c.Exp, "expires at")
 					assert.Equal(t, now.Unix(), c.Iat, "issued at")
-					assert.Equal(t, "foobariss", c.Iss, "issuer")
+					assert.Equal(t, "foobariss/", c.Iss, "issuer")
 					assert.Equal(t, map[string]interface{}{"foo": "bar"}, c.Ext)
 				},
 			},

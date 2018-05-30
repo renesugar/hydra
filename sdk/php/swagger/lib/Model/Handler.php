@@ -56,9 +56,7 @@ class Handler implements ArrayAccess
     protected static $swaggerTypes = [
         'generators' => 'map[string,\Hydra\SDK\Model\KeyGenerator]',
         'h' => '\Hydra\SDK\Model\Writer',
-        'manager' => '\Hydra\SDK\Model\Manager',
-        'resource_prefix' => 'string',
-        'w' => '\Hydra\SDK\Model\Firewall'
+        'manager' => '\Hydra\SDK\Model\Manager'
     ];
 
     /**
@@ -68,9 +66,7 @@ class Handler implements ArrayAccess
     protected static $swaggerFormats = [
         'generators' => null,
         'h' => null,
-        'manager' => null,
-        'resource_prefix' => null,
-        'w' => null
+        'manager' => null
     ];
 
     public static function swaggerTypes()
@@ -90,9 +86,7 @@ class Handler implements ArrayAccess
     protected static $attributeMap = [
         'generators' => 'Generators',
         'h' => 'H',
-        'manager' => 'Manager',
-        'resource_prefix' => 'ResourcePrefix',
-        'w' => 'W'
+        'manager' => 'Manager'
     ];
 
 
@@ -103,9 +97,7 @@ class Handler implements ArrayAccess
     protected static $setters = [
         'generators' => 'setGenerators',
         'h' => 'setH',
-        'manager' => 'setManager',
-        'resource_prefix' => 'setResourcePrefix',
-        'w' => 'setW'
+        'manager' => 'setManager'
     ];
 
 
@@ -116,9 +108,7 @@ class Handler implements ArrayAccess
     protected static $getters = [
         'generators' => 'getGenerators',
         'h' => 'getH',
-        'manager' => 'getManager',
-        'resource_prefix' => 'getResourcePrefix',
-        'w' => 'getW'
+        'manager' => 'getManager'
     ];
 
     public static function attributeMap()
@@ -155,8 +145,6 @@ class Handler implements ArrayAccess
         $this->container['generators'] = isset($data['generators']) ? $data['generators'] : null;
         $this->container['h'] = isset($data['h']) ? $data['h'] : null;
         $this->container['manager'] = isset($data['manager']) ? $data['manager'] : null;
-        $this->container['resource_prefix'] = isset($data['resource_prefix']) ? $data['resource_prefix'] : null;
-        $this->container['w'] = isset($data['w']) ? $data['w'] : null;
     }
 
     /**
@@ -243,48 +231,6 @@ class Handler implements ArrayAccess
     public function setManager($manager)
     {
         $this->container['manager'] = $manager;
-
-        return $this;
-    }
-
-    /**
-     * Gets resource_prefix
-     * @return string
-     */
-    public function getResourcePrefix()
-    {
-        return $this->container['resource_prefix'];
-    }
-
-    /**
-     * Sets resource_prefix
-     * @param string $resource_prefix
-     * @return $this
-     */
-    public function setResourcePrefix($resource_prefix)
-    {
-        $this->container['resource_prefix'] = $resource_prefix;
-
-        return $this;
-    }
-
-    /**
-     * Gets w
-     * @return \Hydra\SDK\Model\Firewall
-     */
-    public function getW()
-    {
-        return $this->container['w'];
-    }
-
-    /**
-     * Sets w
-     * @param \Hydra\SDK\Model\Firewall $w
-     * @return $this
-     */
-    public function setW($w)
-    {
-        $this->container['w'] = $w;
 
         return $this;
     }

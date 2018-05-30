@@ -27,47 +27,34 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/ory/fosite"
 	"github.com/ory/herodot"
-	"github.com/ory/hydra/firewall"
+	"github.com/ory/hydra/consent"
 	"github.com/ory/hydra/pkg"
 	"github.com/sirupsen/logrus"
 )
 
 type Handler struct {
 	OAuth2  fosite.OAuth2Provider
-	Consent ConsentStrategy
+	Consent consent.Strategy
 	Storage pkg.FositeStorer
 
 	H herodot.Writer
 
 	ForcedHTTP bool
-	ConsentURL url.URL
+	ErrorURL   url.URL
 
 	AccessTokenLifespan time.Duration
+	IDTokenLifespan     time.Duration
 	CookieStore         sessions.Store
+
+	IDTokenPublicKeyID string
 
 	L logrus.FieldLogger
 
 	ScopeStrategy fosite.ScopeStrategy
 
-	Issuer string
-
-	W firewall.Firewall
-
-	ResourcePrefix string
+	IssuerURL string
 
 	ClaimsSupported  string
 	ScopesSupported  string
 	UserinfoEndpoint string
-}
-
-func (h *Handler) PrefixResource(resource string) string {
-	if h.ResourcePrefix == "" {
-		h.ResourcePrefix = "rn:hydra"
-	}
-
-	if h.ResourcePrefix[len(h.ResourcePrefix)-1] == ':' {
-		h.ResourcePrefix = h.ResourcePrefix[:len(h.ResourcePrefix)-1]
-	}
-
-	return h.ResourcePrefix + ":" + resource
 }

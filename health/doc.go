@@ -20,12 +20,29 @@
 
 package health
 
-// Instance health report
-// swagger:response healthStatus
-type swaggerListClientsResult struct {
-	// in: body
-	Body struct {
-		// Status always contains "ok"
-		Status string `json:"status"`
-	}
+// swagger:model healthStatus
+type swaggerHealthStatus struct {
+	// Status always contains "ok".
+	Status string `json:"status"`
 }
+
+// swagger:model healthNotReadyStatus
+type swaggerNotReadyStatus struct {
+	// Errors contains a list of errors that caused the not ready status.
+	Errors map[string]string `json:"errors"`
+}
+
+// swagger:model version
+type swaggerVersion struct {
+	Version string `json:"version"`
+}
+
+// swagger:route GET /metrics/prometheus metrics getPrometheusMetrics
+//
+// Retrieve Prometheus metrics
+//
+// This endpoint returns metrics formatted for Prometheus.
+//
+//     Responses:
+//       200
+func prometheusDummy() {}

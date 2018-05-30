@@ -70,6 +70,18 @@ func sqlSchemaUp(table string, id string) string {
 	session_data  	text NOT NULL
 )`, table),
 		"2": fmt.Sprintf("ALTER TABLE hydra_oauth2_%s ADD subject varchar(255) NOT NULL DEFAULT ''", table),
+		"3": `CREATE TABLE IF NOT EXISTS hydra_oauth2_pkce (
+	signature      	varchar(255) NOT NULL PRIMARY KEY,
+	request_id  	varchar(255) NOT NULL,
+	requested_at  	timestamp NOT NULL DEFAULT now(),
+	client_id  		text NOT NULL,
+	scope  			text NOT NULL,
+	granted_scope 	text NOT NULL,
+	form_data  		text NOT NULL,
+	session_data  	text NOT NULL,
+	subject 		varchar(255) NOT NULL
+)`,
+		"4": fmt.Sprintf("ALTER TABLE hydra_oauth2_%s ADD active BOOL NOT NULL DEFAULT TRUE", table),
 	}
 
 	return schemas[id]
@@ -79,6 +91,8 @@ func sqlSchemaDown(table string, id string) string {
 	schemas := map[string]string{
 		"1": fmt.Sprintf(`DROP TABLE %s)`, table),
 		"2": fmt.Sprintf("ALTER TABLE hydra_oauth2_%s DROP COLUMN subject", table),
+		"3": "DROP TABLE hydra_oauth2_pkce",
+		"4": fmt.Sprintf("ALTER TABLE hydra_oauth2_%s DROP COLUMN active", table),
 	}
 
 	return schemas[id]
@@ -89,6 +103,7 @@ const (
 	sqlTableAccess  = "access"
 	sqlTableRefresh = "refresh"
 	sqlTableCode    = "code"
+	sqlTablePKCE    = "pkce"
 )
 
 var migrations = &migrate.MemoryMigrationSource{
@@ -123,6 +138,32 @@ var migrations = &migrate.MemoryMigrationSource{
 				sqlSchemaDown(sqlTableOpenID, "2"),
 			},
 		},
+		{
+			Id: "3",
+			Up: []string{
+				sqlSchemaUp(sqlTablePKCE, "3"),
+			},
+			Down: []string{
+				sqlSchemaDown(sqlTablePKCE, "3"),
+			},
+		},
+		{
+			Id: "4",
+			Up: []string{
+				sqlSchemaUp(sqlTableAccess, "4"),
+				sqlSchemaUp(sqlTableRefresh, "4"),
+				sqlSchemaUp(sqlTableCode, "4"),
+				sqlSchemaUp(sqlTableOpenID, "4"),
+				sqlSchemaUp(sqlTablePKCE, "4"),
+			},
+			Down: []string{
+				sqlSchemaDown(sqlTableAccess, "4"),
+				sqlSchemaDown(sqlTableRefresh, "4"),
+				sqlSchemaDown(sqlTableCode, "4"),
+				sqlSchemaDown(sqlTableOpenID, "4"),
+				sqlSchemaDown(sqlTablePKCE, "4"),
+			},
+		},
 	},
 }
 
@@ -136,6 +177,7 @@ var sqlParams = []string{
 	"form_data",
 	"session_data",
 	"subject",
+	"active",
 }
 
 type sqlData struct {
@@ -147,6 +189,7 @@ type sqlData struct {
 	GrantedScopes string    `db:"granted_scope"`
 	Form          string    `db:"form_data"`
 	Subject       string    `db:"subject"`
+	Active        bool      `db:"active"`
 	Session       []byte    `db:"session_data"`
 }
 
@@ -173,6 +216,7 @@ func sqlSchemaFromRequest(signature string, r fosite.Requester, logger logrus.Fi
 		Form:          r.GetRequestForm().Encode(),
 		Session:       session,
 		Subject:       subject,
+		Active:        true,
 	}, nil
 }
 
@@ -232,6 +276,14 @@ func (s *FositeSQLStore) findSessionBySignature(signature string, session fosite
 		return nil, errors.Wrap(fosite.ErrNotFound, "")
 	} else if err != nil {
 		return nil, errors.WithStack(err)
+	} else if !d.Active && table == sqlTableCode {
+		if r, err := d.toRequest(session, s.Manager, s.L); err != nil {
+			return nil, err
+		} else {
+			return r, errors.WithStack(fosite.ErrInvalidatedAuthorizeCode)
+		}
+	} else if !d.Active {
+		return nil, errors.WithStack(fosite.ErrInactiveToken)
 	}
 
 	return d.toRequest(session, s.Manager, s.L)
@@ -273,8 +325,15 @@ func (s *FositeSQLStore) GetAuthorizeCodeSession(_ context.Context, signature st
 	return s.findSessionBySignature(signature, session, sqlTableCode)
 }
 
-func (s *FositeSQLStore) DeleteAuthorizeCodeSession(_ context.Context, signature string) error {
-	return s.deleteSession(signature, sqlTableCode)
+func (s *FositeSQLStore) InvalidateAuthorizeCodeSession(ctx context.Context, signature string) error {
+	if _, err := s.DB.Exec(s.DB.Rebind(fmt.Sprintf(
+		"UPDATE hydra_oauth2_%s SET active=false WHERE signature=?",
+		sqlTableCode,
+	)), signature); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
 }
 
 func (s *FositeSQLStore) CreateAccessTokenSession(_ context.Context, signature string, requester fosite.Requester) error {
@@ -299,6 +358,18 @@ func (s *FositeSQLStore) GetRefreshTokenSession(_ context.Context, signature str
 
 func (s *FositeSQLStore) DeleteRefreshTokenSession(_ context.Context, signature string) error {
 	return s.deleteSession(signature, sqlTableRefresh)
+}
+
+func (s *FositeSQLStore) CreatePKCERequestSession(_ context.Context, signature string, requester fosite.Requester) error {
+	return s.createSession(signature, requester, sqlTablePKCE)
+}
+
+func (s *FositeSQLStore) GetPKCERequestSession(_ context.Context, signature string, session fosite.Session) (fosite.Requester, error) {
+	return s.findSessionBySignature(signature, session, sqlTablePKCE)
+}
+
+func (s *FositeSQLStore) DeletePKCERequestSession(_ context.Context, signature string) error {
+	return s.deleteSession(signature, sqlTablePKCE)
 }
 
 func (s *FositeSQLStore) CreateImplicitAccessTokenSession(ctx context.Context, signature string, requester fosite.Requester) error {
